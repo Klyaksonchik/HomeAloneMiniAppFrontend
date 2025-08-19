@@ -17,26 +17,38 @@
     #status { font-size: 24px; }
     #contactInput { padding: 5px; font-size: 16px; margin: 10px; }
     #dogImage { max-width: 300px; margin-top: 20px; }
+    #contactSection { position: absolute; top: 10px; right: 10px; }
+    #changeContactBtn { padding: 5px 10px; font-size: 14px; }
   </style>
 </head>
 <body id="body">
   <h2>Home Alone Mini App</h2>
-  <input type="range" id="slider" min="0" max="100" value="50" oninput="updateStatus()">
+  <input type="range" id="slider" min="0" max="1" value="0" step="1" oninput="updateStatus()">
   <div id="status">Переместите слайдер</div>
-  <input id="contactInput" placeholder="@username" onblur="saveContact()">
   <img id="dogImage" src="https://via.placeholder.com/300?text=Neutral+Dog" alt="Dog">
+  <div id="contactSection" style="display: none;">
+    <span id="emergencyContact"></span>
+    <button id="changeContactBtn" onclick="showContactInput()">Изменить контакт</button>
+  </div>
+  <div id="contactInputContainer">
+    <input id="contactInput" placeholder="@username" onblur="saveContact()">
+  </div>
 
   <script>
     const tg = window.Telegram.WebApp;
     tg.ready();
+
+    let contactSaved = false;
 
     function updateStatus() {
       const slider = document.getElementById('slider');
       const body = document.getElementById('body');
       const status = document.getElementById('status');
       const dogImage = document.getElementById('dogImage');
+      const contactSection = document.getElementById('contactSection');
+      const contactInputContainer = document.getElementById('contactInputContainer');
 
-      if (slider.value < 50) {
+      if (slider.value == 0) {
         body.style.backgroundColor = 'rgba(255, 100, 100, 0.3)'; // Бледно-красный
         status.textContent = 'Не дома';
         dogImage.src = 'https://via.placeholder.com/300?text=Sad+Dog'; // Грустная собака
@@ -74,13 +86,37 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, contact: contact })
       }).then(response => {
-        if (response.ok) tg.showAlert('Контакт сохранён!');
-        else tg.showAlert('Ошибка сохранения контакта.');
+        if (response.ok) {
+          tg.showAlert('Контакт сохранён!');
+          document.getElementById('contactInputContainer').style.display = 'none';
+          document.getElementById('emergencyContact').textContent = `Экстренный контакт: ${contact}`;
+          document.getElementById('contactSection').style.display = 'block';
+          contactSaved = true;
+        } else tg.showAlert('Ошибка сохранения контакта.');
       }).catch(() => tg.showAlert('Ошибка сети.'));
     }
 
-    // Инициализация
-    updateStatus();
+    function showContactInput() {
+      document.getElementById('contactInputContainer').style.display = 'block';
+      document.getElementById('contactSection').style.display = 'none';
+      contactSaved = false;
+    }
+
+    // Проверка сохранённого контакта при загрузке
+    if (tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+      fetch(`https://homealoneminiapp.onrender.com/contact?user_id=${tg.initDataUnsafe.user.id}`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+      }).then(response => response.json())
+        .then(data => {
+          if (data.emergency_contact) {
+            document.getElementById('contactInputContainer').style.display = 'none';
+            document.getElementById('emergencyContact').textContent = `Экстренный контакт: ${data.emergency_contact}`;
+            document.getElementById('contactSection').style.display = 'block';
+            contactSaved = true;
+          }
+        }).catch(() => {});
+    }
   </script>
 </body>
 </html>
