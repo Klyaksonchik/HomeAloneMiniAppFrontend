@@ -15,7 +15,7 @@
       margin: 20px auto; 
     }
     #status { font-size: 24px; }
-    #contactInput { padding: 5px; font-size: 16px; margin: 10px; }
+    #timer { font-size: 18px; color: red; margin-top: 10px; }
     #dogImage { max-width: 300px; margin-top: 20px; }
     #contactSection { position: absolute; top: 10px; right: 10px; }
     #changeContactBtn { padding: 5px 10px; font-size: 14px; }
@@ -25,6 +25,7 @@
   <h2>Home Alone Mini App</h2>
   <input type="range" id="slider" min="0" max="1" value="0" step="1" oninput="updateStatus()">
   <div id="status">Переместите слайдер</div>
+  <div id="timer" style="display: none;">Осталось: 30 сек.</div>
   <img id="dogImage" src="https://via.placeholder.com/300?text=Neutral+Dog" alt="Dog">
   <div id="contactSection" style="display: none;">
     <span id="emergencyContact"></span>
@@ -39,12 +40,14 @@
     tg.ready();
 
     let contactSaved = false;
+    let timerInterval = null;
 
     function updateStatus() {
       const slider = document.getElementById('slider');
       const body = document.getElementById('body');
       const status = document.getElementById('status');
       const dogImage = document.getElementById('dogImage');
+      const timer = document.getElementById('timer');
       const contactSection = document.getElementById('contactSection');
       const contactInputContainer = document.getElementById('contactInputContainer');
 
@@ -53,11 +56,34 @@
         status.textContent = 'Не дома';
         dogImage.src = 'https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png'; // Грустная собака
         sendStatus('не дома');
+        startTimer();
       } else {
         body.style.backgroundColor = 'rgba(100, 255, 100, 0.3)'; // Светло-зелёный
         status.textContent = 'Дома';
         dogImage.src = 'https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png'; // Счастливая собака
         sendStatus('дома');
+        stopTimer();
+      }
+    }
+
+    function startTimer() {
+      let timeLeft = 30;
+      document.getElementById('timer').style.display = 'block';
+      if (timerInterval) clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        timeLeft--;
+        document.getElementById('timer').textContent = `Осталось: ${timeLeft} сек.`;
+        if (timeLeft <= 0) {
+          clearInterval(timerInterval);
+          document.getElementById('timer').style.display = 'none';
+        }
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        document.getElementById('timer').style.display = 'none';
       }
     }
 
