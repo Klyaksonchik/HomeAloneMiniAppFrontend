@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
+    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
+    input { padding: 5px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h2>Home Alone Mini App</h2>
+  <button onclick="sendStatus('дома')">🏠 Дома</button>
+  <button onclick="sendStatus('не дома')">🚶 Не дома</button>
+  <br>
+  <input id="contact" placeholder="@username" />
+  <button onclick="sendContact()">Сохранить контакт</button>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+
+    function sendStatus(status) {
+      fetch('https://homealoneminiapp.onrender.com/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, status: status })
+      }).then(() => tg.showAlert('Статус обновлён!'));
+    }
+
+    function sendContact() {
+      const contact = document.getElementById('contact').value;
+      fetch('https://homealoneminiapp.onrender.com/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, contact: contact })
+      }).then(() => tg.showAlert('Контакт сохранён!'));
+    }
+  </script>
+</body>
+</html>
