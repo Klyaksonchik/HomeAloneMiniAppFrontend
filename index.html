@@ -18,23 +18,37 @@
 
   <script>
     const tg = window.Telegram.WebApp;
-    tg.ready();
+    tg.ready(); // Готовим Web App
 
     function sendStatus(status) {
+      if (!tg.initDataUnsafe.user || !tg.initDataUnsafe.user.id) {
+        alert("Ошибка: Не удалось получить ID пользователя.");
+        return;
+      }
       fetch('https://homealoneminiapp.onrender.com/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, status: status })
-      }).then(() => tg.showAlert('Статус обновлён!'));
+      }).then(response => {
+        if (response.ok) tg.showAlert('Статус обновлён!');
+        else tg.showAlert('Ошибка обновления статуса.');
+      }).catch(() => tg.showAlert('Ошибка сети.'));
     }
 
     function sendContact() {
       const contact = document.getElementById('contact').value;
+      if (!contact.startsWith('@')) {
+        tg.showAlert('Контакт должен начинаться с @!');
+        return;
+      }
       fetch('https://homealoneminiapp.onrender.com/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, contact: contact })
-      }).then(() => tg.showAlert('Контакт сохранён!'));
+      }).then(response => {
+        if (response.ok) tg.showAlert('Контакт сохранён!');
+        else tg.showAlert('Ошибка сохранения контакта.');
+      }).catch(() => tg.showAlert('Ошибка сети.'));
     }
   </script>
 </body>
