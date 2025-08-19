@@ -3,26 +3,55 @@
 <head>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }
-    button { padding: 10px 20px; margin: 5px; font-size: 16px; }
-    input { padding: 5px; font-size: 16px; }
+    body { 
+      font-family: Arial, sans-serif; 
+      text-align: center; 
+      margin: 0; 
+      padding: 50px; 
+      transition: background-color 0.5s; 
+    }
+    #slider { 
+      width: 200px; 
+      margin: 20px auto; 
+    }
+    #status { font-size: 24px; }
+    #contactInput { padding: 5px; font-size: 16px; margin: 10px; }
+    #dogImage { max-width: 300px; margin-top: 20px; }
   </style>
 </head>
-<body>
+<body id="body">
   <h2>Home Alone Mini App</h2>
-  <button onclick="sendStatus('дома')">🏠 Дома</button>
-  <button onclick="sendStatus('не дома')">🚶 Не дома</button>
-  <br>
-  <input id="contact" placeholder="@username" />
-  <button onclick="sendContact()">Сохранить контакт</button>
+  <input type="range" id="slider" min="0" max="100" value="50" oninput="updateStatus()">
+  <div id="status">Переместите слайдер</div>
+  <input id="contactInput" placeholder="@username" onblur="saveContact()">
+  <img id="dogImage" src="https://via.placeholder.com/300?text=Neutral+Dog" alt="Dog">
 
   <script>
     const tg = window.Telegram.WebApp;
-    tg.ready(); // Готовим Web App
+    tg.ready();
+
+    function updateStatus() {
+      const slider = document.getElementById('slider');
+      const body = document.getElementById('body');
+      const status = document.getElementById('status');
+      const dogImage = document.getElementById('dogImage');
+
+      if (slider.value < 50) {
+        body.style.backgroundColor = 'rgba(255, 100, 100, 0.3)'; // Бледно-красный
+        status.textContent = 'Не дома';
+        dogImage.src = 'https://via.placeholder.com/300?text=Sad+Dog'; // Грустная собака
+        sendStatus('не дома');
+      } else {
+        body.style.backgroundColor = 'rgba(100, 255, 100, 0.3)'; // Светло-зелёный
+        status.textContent = 'Дома';
+        dogImage.src = 'https://via.placeholder.com/300?text=Happy+Dog'; // Счастливая собака
+        sendStatus('дома');
+      }
+    }
 
     function sendStatus(status) {
       if (!tg.initDataUnsafe.user || !tg.initDataUnsafe.user.id) {
-        alert("Ошибка: Не удалось получить ID пользователя.");
+        tg.showAlert('Ошибка: Не удалось получить ID пользователя.');
         return;
       }
       fetch('https://homealoneminiapp.onrender.com/status', {
@@ -30,13 +59,12 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: tg.initDataUnsafe.user.id, status: status })
       }).then(response => {
-        if (response.ok) tg.showAlert('Статус обновлён!');
-        else tg.showAlert('Ошибка обновления статуса.');
+        if (!response.ok) tg.showAlert('Ошибка сети или сервера.');
       }).catch(() => tg.showAlert('Ошибка сети.'));
     }
 
-    function sendContact() {
-      const contact = document.getElementById('contact').value;
+    function saveContact() {
+      const contact = document.getElementById('contactInput').value;
       if (!contact.startsWith('@')) {
         tg.showAlert('Контакт должен начинаться с @!');
         return;
@@ -50,6 +78,9 @@
         else tg.showAlert('Ошибка сохранения контакта.');
       }).catch(() => tg.showAlert('Ошибка сети.'));
     }
+
+    // Инициализация
+    updateStatus();
   </script>
 </body>
 </html>
