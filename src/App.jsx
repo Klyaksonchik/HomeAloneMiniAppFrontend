@@ -1,64 +1,108 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+
+const BACKEND_BASE = "https://homealoneminiapp.onrender.com"; // твой Render
+
+// Сколько секунд показывать обратный отсчёт на экране мини-аппа.
+// ВНИМАНИЕ: сейчас бэкенд присылает напоминание через 30 сек (TEST_MODE=True).
+// Здесь ставлю 30, чтобы фронт и бэк совпадали. Когда переведёшь бэк на 60 — поменяешь тут на 60.
+const COUNTDOWN_SECONDS = 30;
 
 export default function App() {
-  const [status, setStatus] = useState("дома");
-  const [contact, setContact] = useState("");
-  const [savedContact, setSavedContact] = useState("");
-  const [countdown, setCountdown] = useState(30);
-  const [timerRunning, setTimerRunning] = useState(false);
+  // Telegram user_id (chat_id). Внутри Telegram он есть в initDataUnsafe.
   const [userId, setUserId] = useState(null);
 
-  // При монтировании получаем user_id из Telegram WebApp
+  // UI состояние
+  const [status, setStatus] = useState("дома"); // "дома" | "не дома"
+  const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS);
+  const [timerRunning, setTimerRunning] = useState(false);
+
+  // Экстренный контакт
+  const [contactInput, setContactInput] = useState("");
+  const [savedContact, setSavedContact] = useState("");
+  const [loadingContact, setLoadingContact] = useState(false);
+
+  // Фон экрана (зелёный/красный)
+  const bgStyle = useMemo(() => {
+    return status === "дома"
+      ? { background: "linear-gradient(180deg, #d8f3dc 0%, #b7e4c7 100%)" }
+      : { background: "linear-gradient(180deg, #ffd1d1 0%, #ffb1b1 100%)" };
+  }, [status]);
+
+  // Пробуем взять userId из Telegram WebApp. Для локальной проверки ничего не подставляем.
   useEffect(() => {
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
-      setUserId(window.Telegram.WebApp.initDataUnsafe.user.id);
-    }
+    const tg = window?.Telegram?.WebApp;
+    try {
+      if (tg?.initDataUnsafe?.user?.id) {
+        setUserId(tg.initDataUnsafe.user.id);
+      }
+      tg?.expand?.();
+    } catch (e) {}
   }, []);
 
-  // Таймер обратного отсчёта
+  // При старте — загрузить сохранённый контакт
   useEffect(() => {
-    let interval;
-    if (status === "не дома" && timerRunning) {
-      interval = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(interval);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+    if (!userId) return;
+    (async () => {
+      try {
+        const resp = await fetch(`${BACKEND_BASE}/contact?user_id=${userId}`);
+        const data = await resp.json();
+        if (data?.emergency_contact) {
+          setSavedContact(data.emergency_contact);
+        }
+      } catch (e) {
+        // тихо игнорируем
+      }
+    })();
+  }, [userId]);
+
+  // Локальный обратный отсчёт (чисто для UX). Бэкенд свой таймер считает сам.
+  useEffect(() => {
+    if (status !== "не дома" || !timerRunning) return;
+    setCountdown((prev) => (prev === COUNTDOWN_SECONDS ? prev : COUNTDOWN_SECONDS)); // защита
+    const id = setInterval(() => {
+      setCountdown((s) => {
+        if (s <= 1) {
+          clearInterval(id);
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(id);
   }, [status, timerRunning]);
 
-  // Отправляем статус на бэк
+  // Отправка статуса на бэкенд
   const sendStatus = async (newStatus) => {
     if (!userId) return;
     try {
-      await fetch("https://ТВОЙ-БЭК.render.com/status", {
+      await fetch(`${BACKEND_BASE}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, status: newStatus }),
       });
-    } catch (e) {
-      console.error("Ошибка отправки статуса", e);
-    }
+    } catch (e) {}
   };
 
-  // Сохраняем контакт
+  // Сохранение экстренного контакта
   const saveContact = async () => {
-    if (!userId || !contact) return;
+    if (!userId) return;
+    const value = contactInput.trim();
+    if (!/^@[a-zA-Z0-9_]{5,}$/.test(value)) return; // простая валидация @username
+    setLoadingContact(true);
     try {
-      await fetch("https://ТВОЙ-БЭК.render.com/contact", {
+      const resp = await fetch(`${BACKEND_BASE}/contact`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, contact }),
+        body: JSON.stringify({ user_id: userId, contact: value }),
       });
-      setSavedContact(contact);
-      setContact("");
+      const ok = (await resp.json())?.success;
+      if (ok) {
+        setSavedContact(value);
+        setContactInput("");
+      }
     } catch (e) {
-      console.error("Ошибка сохранения контакта", e);
+    } finally {
+      setLoadingContact(false);
     }
   };
 
@@ -67,81 +111,85 @@ export default function App() {
     const newStatus = status === "дома" ? "не дома" : "дома";
     setStatus(newStatus);
     sendStatus(newStatus);
-
     if (newStatus === "не дома") {
-      setCountdown(30);
+      setCountdown(COUNTDOWN_SECONDS);
       setTimerRunning(true);
     } else {
       setTimerRunning(false);
-      setCountdown(30);
+      setCountdown(COUNTDOWN_SECONDS);
     }
   };
 
+  // Картинка по состоянию
+  const imageSrc =
+    status === "дома"
+      ? "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png"
+      : "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png";
+
   return (
-    <div
-      className={`w-screen h-screen flex flex-col items-center justify-center transition-colors duration-500 ${
-        status === "дома" ? "bg-green-200" : "bg-red-200"
-      }`}
-    >
-      <div className="text-2xl font-bold mb-4">
-        {status === "дома" ? "🏡 Дома" : "🚶 Не дома"}
-      </div>
-
-      <img
-        src={
-          status === "дома"
-            ? "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png"
-            : "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png"
-        }
-        alt="dog"
-        className="w-64 h-64 object-contain mb-6"
-      />
-
-      {/* Таймер */}
-      {status === "не дома" && (
-        <div className="text-xl font-mono mb-6">
-          Обратный отсчёт: {countdown} сек
+    <div className="app" style={bgStyle}>
+      <div className="screen">
+        <div className="header">
+          <div className="title">HomeAlone</div>
+          <div className="status-badge">
+            {status === "дома" ? "🏡 Дома" : "🚶 Не дома"}
+          </div>
         </div>
-      )}
 
-      {/* Слайдер */}
-      <div className="flex items-center mb-6">
-        <label className="flex items-center cursor-pointer">
-          <div className="relative">
+        <div className="card hero">
+            <img src={imageSrc} alt={status === "дома" ? "happy dog" : "sad dog"} />
+        </div>
+
+        {status === "не дома" ? (
+          <div className="card timer">
+            Обратный отсчёт: {countdown} сек
+          </div>
+        ) : (
+          <div className="hint">Переведи переключатель, когда уходишь из дома.</div>
+        )}
+
+        <div className="card slider-wrap" aria-label="Переключатель дома/не дома">
+          <label className="toggle">
             <input
               type="checkbox"
               checked={status === "дома"}
               onChange={toggleStatus}
-              className="sr-only"
+              aria-checked={status === "дома"}
+              aria-label={status === "дома" ? "Сейчас дома" : "Сейчас не дома"}
             />
-            <div className="w-16 h-8 bg-gray-300 rounded-full shadow-inner"></div>
-            <div
-              className={`absolute w-8 h-8 bg-white rounded-full shadow -left-1 -top-1 transition-transform duration-300 ${
-                status === "дома" ? "translate-x-8" : ""
-              }`}
-            ></div>
-          </div>
-        </label>
-      </div>
+            <span className="track"></span>
+            <span className="thumb"></span>
+          </label>
+        </div>
 
-      {/* Экстренный контакт */}
-      <div className="flex flex-col items-center">
-        <input
-          type="text"
-          placeholder="@экстренный_контакт"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          className="border p-2 rounded mb-2"
-        />
-        <button
-          onClick={saveContact}
-          className="px-4 py-2 bg-blue-500 text-white rounded"
-        >
-          Сохранить контакт
-        </button>
-        {savedContact && (
-          <div className="mt-2 text-gray-700">
-            Экстренный контакт: <b>{savedContact}</b>
+        <div className="card">
+          <div className="row" style={{ marginBottom: 8 }}>
+            <input
+              className="input"
+              type="text"
+              inputMode="text"
+              placeholder="@экстренный_контакт"
+              value={contactInput}
+              onChange={(e) => setContactInput(e.target.value)}
+            />
+            <button
+              className="button"
+              onClick={saveContact}
+              disabled={!/^@[a-zA-Z0-9_]{5,}$/.test(contactInput) || loadingContact || !userId}
+            >
+              {loadingContact ? "Сохраняю..." : "Сохранить"}
+            </button>
+          </div>
+          <div className="hint">
+            {savedContact
+              ? <>Экстренный контакт: <b>{savedContact}</b>. Он получит уведомление, если ты не ответишь.</>
+              : <>Укажи @username контакта, чтобы мы могли его предупредить.</>}
+          </div>
+        </div>
+
+        {!userId && (
+          <div className="hint">
+            Открой мини-приложение **внутри Telegram**, чтобы всё работало (нужен твой user_id).
           </div>
         )}
       </div>
