@@ -1,139 +1,89 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 
-export default function App() {
-  const [userId, setUserId] = useState(null);
+function App() {
   const [status, setStatus] = useState("дома");
   const [contact, setContact] = useState("");
   const [savedContact, setSavedContact] = useState("");
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
 
-  // --- Получаем user_id из Telegram ---
-  useEffect(() => {
-    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
-      setUserId(window.Telegram.WebApp.initDataUnsafe.user.id);
-    } else {
-      // fallback для теста
-      setUserId(123456);
-    }
-  }, []);
+  const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+  const API_URL = "https://homealoneminiapp.onrender.com"; // твой бекенд
 
-  // --- Загружаем контакт при запуске ---
+  // Загружаем сохранённый контакт при старте
   useEffect(() => {
-    if (!userId) return;
-    fetch(`https://homealoneminiapp.onrender.com/contact?user_id=${userId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.emergency_contact) {
-          setSavedContact(data.emergency_contact);
-          setIsEditing(false);
-        } else {
-          setIsEditing(true);
+    axios
+      .get(`${API_URL}/contact`, { params: { user_id: userId } })
+      .then((res) => {
+        if (res.data.emergency_contact) {
+          setContact(res.data.emergency_contact);
+          setSavedContact(res.data.emergency_contact);
+          setIsEditing(false); // если контакт уже есть — сразу показываем "Изменить"
         }
       })
-      .catch((err) => console.error("Ошибка загрузки контакта", err));
+      .catch((err) => console.error("Ошибка загрузки контакта:", err));
   }, [userId]);
 
-  // --- Обновление статуса ---
-  const handleStatusChange = (newStatus) => {
-    setStatus(newStatus);
-    fetch("https://homealoneminiapp.onrender.com/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, status: newStatus }),
-    }).catch((err) => console.error("Ошибка обновления статуса", err));
+  // Сохраняем контакт
+  const handleSaveContact = async () => {
+    try {
+      const res = await axios.post(`${API_URL}/contact`, {
+        user_id: userId,
+        contact,
+      });
+      if (res.data.success) {
+        setSavedContact(contact);
+        setIsEditing(false);
+      }
+    } catch (err) {
+      console.error("Ошибка сохранения:", err);
+    }
   };
 
-  // --- Сохранение контакта ---
-  const handleSaveContact = () => {
-    if (!contact.startsWith("@")) {
-      alert("Введите username в формате @имя");
-      return;
+  // Меняем статус (дома / не дома)
+  const handleStatusChange = async (newStatus) => {
+    setStatus(newStatus);
+    try {
+      await axios.post(`${API_URL}/status`, {
+        user_id: userId,
+        status: newStatus,
+      });
+    } catch (err) {
+      console.error("Ошибка изменения статуса:", err);
     }
-    fetch("https://homealoneminiapp.onrender.com/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, contact }),
-    })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success) {
-          setSavedContact(contact);
-          setIsEditing(false);
-        }
-      })
-      .catch((err) => console.error("Ошибка сохранения контакта", err));
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 to-purple-100 p-6">
-      <div className="bg-white shadow-2xl rounded-2xl p-8 w-full max-w-sm text-center">
-        <h1 className="text-2xl font-bold mb-6">🏠 Home Alone MiniApp</h1>
+    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+      <h1>🏠 Home Alone MiniApp</h1>
 
-        {/* Слайдер */}
-        <div className="mb-6">
-          <label className="block text-lg font-medium mb-2">Статус:</label>
-          <div className="flex items-center justify-between bg-gray-200 rounded-xl p-2">
-            <button
-              className={`flex-1 py-2 mx-1 rounded-xl transition ${
-                status === "дома"
-                  ? "bg-green-500 text-white shadow-md"
-                  : "bg-gray-100"
-              }`}
-              onClick={() => handleStatusChange("дома")}
-            >
-              Дома
-            </button>
-            <button
-              className={`flex-1 py-2 mx-1 rounded-xl transition ${
-                status === "не дома"
-                  ? "bg-red-500 text-white shadow-md"
-                  : "bg-gray-100"
-              }`}
-              onClick={() => handleStatusChange("не дома")}
-            >
-              Не дома
-            </button>
-          </div>
-        </div>
-
-        {/* Экстренный контакт */}
-        <div className="mb-6">
-          <label className="block text-lg font-medium mb-2">
-            Экстренный контакт:
-          </label>
-          {!isEditing ? (
-            <div className="flex flex-col items-center">
-              <p className="text-lg font-semibold mb-2">{savedContact}</p>
-              <button
-                className="bg-yellow-500 text-white px-4 py-2 rounded-xl shadow"
-                onClick={() => setIsEditing(true)}
-              >
-                Изменить
-              </button>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center">
-              <input
-                type="text"
-                value={contact}
-                onChange={(e) => setContact(e.target.value)}
-                placeholder="@username"
-                className="border p-2 rounded-xl mb-2 w-full text-center"
-              />
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded-xl shadow"
-                onClick={handleSaveContact}
-              >
-                Сохранить
-              </button>
-            </div>
-          )}
-        </div>
-
-        <p className="text-sm text-gray-500">
-          Таймер работает даже если приложение закрыто 🚀
-        </p>
+      <div>
+        <h3>Статус:</h3>
+        <button onClick={() => handleStatusChange("дома")}>Дома</button>
+        <button onClick={() => handleStatusChange("не дома")}>Не дома</button>
       </div>
+
+      <div style={{ marginTop: "20px" }}>
+        <h3>Экстренный контакт:</h3>
+        <input
+          type="text"
+          value={contact}
+          disabled={!isEditing}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder="@username"
+        />
+        {isEditing ? (
+          <button onClick={handleSaveContact}>Сохранить</button>
+        ) : (
+          <button onClick={() => setIsEditing(true)}>Изменить</button>
+        )}
+      </div>
+
+      <p style={{ marginTop: "30px" }}>
+        Таймер работает даже если приложение закрыто 🚀
+      </p>
     </div>
   );
 }
+
+export default App;
