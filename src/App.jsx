@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./App.css"; // сюда пойдёт стиль слайдера
 
 function App() {
   const [status, setStatus] = useState("дома");
@@ -9,9 +8,13 @@ function App() {
   const [isEditing, setIsEditing] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
 
+  // ID пользователя из MiniApp (в Telegram он всегда есть); fallback только для локальных тестов
   const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
+
+  // ТВОЙ бэкенд на Render
   const API_URL = "https://homealoneminiapp.onrender.com";
 
+  // Загружаем сохранённый экстренный контакт при старте
   useEffect(() => {
     axios
       .get(`${API_URL}/contact`, { params: { user_id: userId } })
@@ -25,6 +28,7 @@ function App() {
       .catch((err) => console.error("Ошибка загрузки контакта:", err));
   }, [userId]);
 
+  // Сохранить/обновить экстренный контакт
   const handleSaveContact = async () => {
     try {
       const res = await axios.post(`${API_URL}/contact`, {
@@ -34,14 +38,19 @@ function App() {
       if (res.data.success) {
         setSavedContact(contact);
         setIsEditing(false);
+      } else {
+        alert(res.data.error || "Не удалось сохранить контакт");
       }
     } catch (err) {
-      console.error("Ошибка сохранения:", err);
+      console.error("Ошибка сохранения контакта:", err);
+      alert("Ошибка сохранения контакта");
     }
   };
 
+  // Переключение статуса через слайдер
+  // ВАЖНО: checked === "дома" (зелёный), unchecked === "не дома" (красный)
   const handleToggle = async (checked) => {
-    const newStatus = checked ? "не дома" : "дома";
+    const newStatus = checked ? "дома" : "не дома";
     setStatus(newStatus);
 
     try {
@@ -53,26 +62,16 @@ function App() {
       console.error("Ошибка изменения статуса:", err);
     }
 
+    // Локальный обратный отсчёт (только отображение). Серверный таймер — в app.py
     if (newStatus === "не дома") {
-      const duration = 60; // секунд
+      const duration = 30; // сек в тестовом режиме
       setTimeLeft(duration);
-
-      const timer = setInterval(() => {
+      const t = setInterval(() => {
         setTimeLeft((prev) => {
-          if (prev === 1) clearInterval(timer);
+          if (prev === 1) clearInterval(t);
           return prev > 0 ? prev - 1 : 0;
         });
       }, 1000);
-
-      try {
-        await axios.post(`${API_URL}/start-timer`, {
-          user_id: userId,
-          contact: savedContact,
-          duration,
-        });
-      } catch (err) {
-        console.error("Ошибка запуска таймера:", err);
-      }
     } else {
       setTimeLeft(null);
     }
@@ -82,9 +81,9 @@ function App() {
     <div
       className="app"
       style={{
-        background: status === "дома" ? "#d9f9d9" : "#ffd9d9",
+        background: status === "дома" ? "#E9F8EC" : "#FFE6E6",
         minHeight: "100vh",
-        paddingTop: "48px",
+        paddingTop: "56px", // чтобы заголовок не уезжал под шторку Telegram
       }}
     >
       <div className="screen">
@@ -92,32 +91,36 @@ function App() {
 
         <div className="card">
           <h3>Статус:</h3>
-          <div className="toggle-container">
-            <input
-              type="checkbox"
-              id="status-toggle"
-              checked={status === "не дома"}
-              onChange={(e) => handleToggle(e.target.checked)}
-            />
-            <label htmlFor="status-toggle" className="toggle-label">
-              <span className="toggle-text on">Дома</span>
-              <span className="toggle-text off">Не дома</span>
-              <span className="toggle-ball"></span>
+          <div className="slider-wrap">
+            <label className="toggle">
+              <input
+                type="checkbox"
+                checked={status === "дома"}
+                onChange={(e) => handleToggle(e.target.checked)}
+              />
+              <div className="track"></div>
+              <div className="thumb"></div>
+              <div className="labels">
+                <span className="left">Дома</span>
+                <span className="right">Не дома</span>
+              </div>
             </label>
           </div>
         </div>
 
+        {/* Картинка по статусу */}
         <div className="hero">
           <img
             src={
               status === "дома"
-                ? "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png"
-                : "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png"
+                ? "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png" // счастливый пёс
+                : "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png" // грустный пёс
             }
             alt="dog"
           />
         </div>
 
+        {/* Таймер виден только в "не дома" */}
         {status === "не дома" && (
           <div className="timer">⏳ Осталось: {timeLeft ?? "..."} сек</div>
         )}
