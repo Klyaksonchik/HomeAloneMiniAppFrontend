@@ -18,7 +18,7 @@ function App() {
         if (res.data.emergency_contact) {
           setContact(res.data.emergency_contact);
           setSavedContact(res.data.emergency_contact);
-          setIsEditing(false); // если контакт уже есть — сразу показываем "Изменить"
+          setIsEditing(false);
         }
       })
       .catch((err) => console.error("Ошибка загрузки контакта:", err));
@@ -40,7 +40,7 @@ function App() {
     }
   };
 
-  // Меняем статус (дома / не дома)
+  // Меняем статус
   const handleStatusChange = async (newStatus) => {
     setStatus(newStatus);
     try {
@@ -54,16 +54,26 @@ function App() {
   };
 
   return (
-    <div style={{ padding: "20px", fontFamily: "Arial" }}>
+    <div className="app-container">
       <h1>🏠 Home Alone MiniApp</h1>
 
-      <div>
+      <div className="block">
         <h3>Статус:</h3>
-        <button onClick={() => handleStatusChange("дома")}>Дома</button>
-        <button onClick={() => handleStatusChange("не дома")}>Не дома</button>
+        <button
+          className={status === "дома" ? "active" : ""}
+          onClick={() => handleStatusChange("дома")}
+        >
+          Дома
+        </button>
+        <button
+          className={status === "не дома" ? "active" : ""}
+          onClick={() => handleStatusChange("не дома")}
+        >
+          Не дома
+        </button>
       </div>
 
-      <div style={{ marginTop: "20px" }}>
+      <div className="block">
         <h3>Экстренный контакт:</h3>
         <input
           type="text"
@@ -79,7 +89,7 @@ function App() {
         )}
       </div>
 
-      <p style={{ marginTop: "30px" }}>
+      <p className="note">
         Таймер работает даже если приложение закрыто 🚀
       </p>
     </div>
