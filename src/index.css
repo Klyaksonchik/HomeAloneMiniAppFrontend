@@ -167,3 +167,25 @@ input:checked + .track + .thumb {
   opacity: 0.8;
   text-align: center;
 }
+/* Подписи внутри слайдера "Дома / Не дома" */
+.toggle .labels {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-weight: 700;
+  font-size: 14px;
+  pointer-events: none; /* клики идут в input */
+}
+
+/* Цвет трека: зелёный когда Дома (checked), красный когда Не дома */
+input:checked + .track { background: #8dd19a; }           /* Дома */
+input:not(:checked) + .track { background: #f8a3a3; }      /* Не дома */
+
+/* Активная подпись ярче, неактивная бледнее */
+.toggle .labels .left { opacity: .55; }
+.toggle .labels .right { opacity: .55; }
+input:checked ~ .labels .left { opacity: 1; }              /* Дома активна */
+input:not(:checked) ~ .labels .right { opacity: 1; }       /* Не дома активна */
