@@ -6,9 +6,10 @@ function App() {
   const [contact, setContact] = useState("");
   const [savedContact, setSavedContact] = useState("");
   const [isEditing, setIsEditing] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(null);
 
   const userId = window.Telegram?.WebApp?.initDataUnsafe?.user?.id || 12345;
-  const API_URL = "https://homealoneminiapp.onrender.com"; // твой бекенд
+  const API_URL = "https://homealoneminiapp.onrender.com";
 
   // Загружаем сохранённый контакт при старте
   useEffect(() => {
@@ -40,9 +41,11 @@ function App() {
     }
   };
 
-  // Меняем статус
-  const handleStatusChange = async (newStatus) => {
+  // Переключение статуса
+  const handleToggle = async (checked) => {
+    const newStatus = checked ? "не дома" : "дома";
     setStatus(newStatus);
+
     try {
       await axios.post(`${API_URL}/status`, {
         user_id: userId,
@@ -51,40 +54,81 @@ function App() {
     } catch (err) {
       console.error("Ошибка изменения статуса:", err);
     }
+
+    // Если "не дома" → запускаем таймер на сервере
+    if (newStatus === "не дома") {
+      const duration = 60; // секунд, можно вынести в настройку
+      setTimeLeft(duration);
+
+      // локальный обратный отсчёт
+      const timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev === 1) {
+            clearInterval(timer);
+          }
+          return prev > 0 ? prev - 1 : 0;
+        });
+      }, 1000);
+
+      // отправляем на сервер, чтобы по истечении пришло сообщение
+      try {
+        await axios.post(`${API_URL}/start-timer`, {
+          user_id: userId,
+          duration, // в секундах
+        });
+      } catch (err) {
+        console.error("Ошибка запуска таймера:", err);
+      }
+    } else {
+      setTimeLeft(null);
+    }
   };
 
   return (
-    <div className="app">
+    <div
+      className="app"
+      style={{
+        background: status === "дома" ? "#d9f9d9" : "#ffd9d9",
+        minHeight: "100vh",
+        paddingTop: "48px", // чтобы не залезало под шторку
+      }}
+    >
       <div className="screen">
         {/* Заголовок */}
-        <div className="header">
-          <h1 className="title">🏠 Home Alone MiniApp</h1>
-        </div>
+        <h1 className="title">🏠 Home Alone MiniApp</h1>
 
-        {/* Статус */}
+        {/* Переключатель */}
         <div className="card">
           <h3>Статус:</h3>
-          <div className="row">
-            <button
-              className="button"
-              style={{
-                background: status === "дома" ? "#8dd19a" : "#1f6feb",
-              }}
-              onClick={() => handleStatusChange("дома")}
-            >
-              Дома
-            </button>
-            <button
-              className="button"
-              style={{
-                background: status === "не дома" ? "#f87171" : "#1f6feb",
-              }}
-              onClick={() => handleStatusChange("не дома")}
-            >
-              Не дома
-            </button>
-          </div>
+          <label className="toggle">
+            <input
+              type="checkbox"
+              checked={status === "не дома"}
+              onChange={(e) => handleToggle(e.target.checked)}
+            />
+            <span className="track"></span>
+            <span className="thumb"></span>
+          </label>
         </div>
+
+        {/* Картинка */}
+        <div className="hero">
+          <img
+            src={
+              status === "дома"
+                ? "https://i.imgur.com/oj1QK5V.png" // счастливая собака
+                : "https://i.imgur.com/wOa9j6z.png" // грустная собака
+            }
+            alt="dog"
+          />
+        </div>
+
+        {/* Таймер */}
+        {status === "не дома" && (
+          <div className="timer">
+            ⏳ Осталось: {timeLeft !== null ? timeLeft : "..."} сек
+          </div>
+        )}
 
         {/* Экстренный контакт */}
         <div className="card">
@@ -109,11 +153,6 @@ function App() {
             )}
           </div>
         </div>
-
-        {/* Подсказка */}
-        <p className="hint">
-          Таймер работает даже если приложение закрыто 🚀
-        </p>
       </div>
     </div>
   );
