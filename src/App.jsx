@@ -116,8 +116,8 @@ function App() {
           <img
             src={
               status === "дома"
-                ? "https://i.imgur.com/oj1QK5V.png" // счастливая собака
-                : "https://i.imgur.com/wOa9j6z.png" // грустная собака
+                ? "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png" // счастливая собака
+                : "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png" // грустная собака
             }
             alt="dog"
           />
