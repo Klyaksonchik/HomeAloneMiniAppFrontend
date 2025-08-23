@@ -54,44 +54,67 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <h1>🏠 Home Alone MiniApp</h1>
+    <div className="app">
+      <div className="screen">
+        {/* Заголовок */}
+        <div className="header">
+          <h1 className="title">🏠 Home Alone MiniApp</h1>
+        </div>
 
-      <div className="block">
-        <h3>Статус:</h3>
-        <button
-          className={status === "дома" ? "active" : ""}
-          onClick={() => handleStatusChange("дома")}
-        >
-          Дома
-        </button>
-        <button
-          className={status === "не дома" ? "active" : ""}
-          onClick={() => handleStatusChange("не дома")}
-        >
-          Не дома
-        </button>
+        {/* Статус */}
+        <div className="card">
+          <h3>Статус:</h3>
+          <div className="row">
+            <button
+              className="button"
+              style={{
+                background: status === "дома" ? "#8dd19a" : "#1f6feb",
+              }}
+              onClick={() => handleStatusChange("дома")}
+            >
+              Дома
+            </button>
+            <button
+              className="button"
+              style={{
+                background: status === "не дома" ? "#f87171" : "#1f6feb",
+              }}
+              onClick={() => handleStatusChange("не дома")}
+            >
+              Не дома
+            </button>
+          </div>
+        </div>
+
+        {/* Экстренный контакт */}
+        <div className="card">
+          <h3>Экстренный контакт:</h3>
+          <div className="row">
+            <input
+              className="input"
+              type="text"
+              value={contact}
+              disabled={!isEditing}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="@username"
+            />
+            {isEditing ? (
+              <button className="button" onClick={handleSaveContact}>
+                Сохранить
+              </button>
+            ) : (
+              <button className="button" onClick={() => setIsEditing(true)}>
+                Изменить
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Подсказка */}
+        <p className="hint">
+          Таймер работает даже если приложение закрыто 🚀
+        </p>
       </div>
-
-      <div className="block">
-        <h3>Экстренный контакт:</h3>
-        <input
-          type="text"
-          value={contact}
-          disabled={!isEditing}
-          onChange={(e) => setContact(e.target.value)}
-          placeholder="@username"
-        />
-        {isEditing ? (
-          <button onClick={handleSaveContact}>Сохранить</button>
-        ) : (
-          <button onClick={() => setIsEditing(true)}>Изменить</button>
-        )}
-      </div>
-
-      <p className="note">
-        Таймер работает даже если приложение закрыто 🚀
-      </p>
     </div>
   );
 }
