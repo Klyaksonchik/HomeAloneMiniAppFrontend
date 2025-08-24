@@ -1,26 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#ffffff" />
-    <title>HomeAlone MiniApp</title>
-    <style>
-      /* Базовые ресеты, чтобы WebApp занимал всю область */
-      html, body, #root { height: 100%; margin: 0; padding: 0; }
-      body { background: #f8fafb; }
-    </style>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Home Alone MiniApp</title>
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      // Просим Telegram WebApp занять всю высоту, если открыто внутри Telegram
-      if (window.Telegram && window.Telegram.WebApp) {
-        try {
-          window.Telegram.WebApp.expand();
-          window.Telegram.WebApp.enableClosingConfirmation();
-        } catch (e) {}
-      }
-    </script>
   </body>
 </html>
