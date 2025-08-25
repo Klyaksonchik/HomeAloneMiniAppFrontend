@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // при необходимости замените
+const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // замените при необходимости
+const LS_KEY_CONTACT = "homealone_emergency_contact";
 
 export default function App() {
   const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
   const userId = useMemo(() => tg?.initDataUnsafe?.user?.id ?? null, [tg]);
+  const usernameFromTG = useMemo(() => {
+    const u = tg?.initDataUnsafe?.user?.username;
+    return u ? `@${u}` : null;
+  }, [tg]);
 
   const [isHome, setIsHome] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
@@ -13,10 +18,12 @@ export default function App() {
 
   const [contact, setContact] = useState("");
   const [editingContact, setEditingContact] = useState(false);
+  const [hasServerContact, setHasServerContact] = useState(false);
 
   const happyDog = "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png";
   const sadDog = "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png";
 
+  // Инициализация Telegram WebApp
   useEffect(() => {
     try {
       tg?.ready?.();
@@ -25,14 +32,56 @@ export default function App() {
     } catch {}
   }, [tg]);
 
-  // подтягиваем сохранённый экстренный контакт
+  // Подтянуть статус и признак наличия контакта с бэка
+  useEffect(() => {
+    if (!userId) return;
+    axios
+      .get(`${BACKEND_URL}/status`, { params: { user_id: userId } })
+      .then((r) => {
+        const serverStatus = r?.data?.status;
+        setIsHome(serverStatus === "не дома" ? false : true);
+        setHasServerContact(Boolean(r?.data?.emergency_contact_set));
+      })
+      .catch(() => {});
+  }, [userId]);
+
+  // Подтянуть контакт: приоритет — бэк; если пусто/ошибка — берем из localStorage
   useEffect(() => {
     if (!userId) return;
     axios
       .get(`${BACKEND_URL}/contact`, { params: { user_id: userId } })
-      .then((r) => setContact(r?.data?.emergency_contact || ""))
-      .catch(() => {});
+      .then((r) => {
+        const c = r?.data?.emergency_contact || "";
+        if (c) {
+          setContact(c);
+          setHasServerContact(true);
+          try {
+            localStorage.setItem(LS_KEY_CONTACT, c);
+          } catch {}
+        } else {
+          // Бэк вернул пусто: попробуем локальный кэш
+          try {
+            const cached = localStorage.getItem(LS_KEY_CONTACT);
+            if (cached) setContact(cached);
+          } catch {}
+        }
+      })
+      .catch(() => {
+        try {
+          const cached = localStorage.getItem(LS_KEY_CONTACT);
+          if (cached) setContact(cached);
+        } catch {}
+      });
   }, [userId]);
+
+  // Локальный таймер отображения (демо 30 сек)
+  useEffect(() => {
+    if (!timeLeft) return;
+    const id = setInterval(() => {
+      setTimeLeft((prev) => (prev && prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timeLeft]);
 
   const toggleStatus = async () => {
     if (!userId) {
@@ -41,16 +90,21 @@ export default function App() {
     }
     if (busy) return;
 
+    // запрет “не дома” без контакта
+    const contactTrimmed = (contact || "").trim();
+    const contactValid = contactTrimmed.startsWith("@") && contactTrimmed.length > 1;
+    if (isHome && !contactValid) {
+      alert("Укажите экстренный контакт (@username), прежде чем уходить из дома.");
+      return;
+    }
+
     setBusy(true);
-    const username =
-      tg?.initDataUnsafe?.user?.username
-        ? `@${tg.initDataUnsafe.user.username}`
-        : null;
+    const username = usernameFromTG;
 
     try {
       if (isHome) {
         setIsHome(false);
-        setTimeLeft(30); // локальный тестовый таймер отображения
+        setTimeLeft(30);
         await axios.post(`${BACKEND_URL}/status`, {
           user_id: Number(userId),
           status: "не дома",
@@ -67,22 +121,23 @@ export default function App() {
       }
     } catch (e) {
       const msg = e?.response?.data?.error || e?.message || "Ошибка запроса";
-      alert(msg);
+      if (msg === "contact_required") {
+        alert("Сначала укажите экстренный контакт (@username).");
+      } else {
+        alert(msg);
+      }
+      // Откатываем визуально к серверному состоянию
+      try {
+        const r = await axios.get(`${BACKEND_URL}/status`, { params: { user_id: userId } });
+        const serverStatus = r?.data?.status;
+        setIsHome(serverStatus === "не дома" ? false : true);
+      } catch {}
     } finally {
       setBusy(false);
     }
   };
 
-  // локальный таймер отображения
-  useEffect(() => {
-    if (!timeLeft) return;
-    const id = setInterval(() => {
-      setTimeLeft((prev) => (prev && prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [timeLeft]);
-
-  // обработчик для кнопки Изменить/Сохранить контакт
+  // Кнопка “Изменить/Сохранить” экстренного контакта
   const onContactAction = async () => {
     if (!userId) {
       alert("Откройте мини‑апп из Telegram после команды /start боту.");
@@ -92,21 +147,32 @@ export default function App() {
       setEditingContact(true);
       return;
     }
+    let value = (contact || "").trim();
+    if (value && !value.startsWith("@")) value = `@${value}`;
+    if (!value || value === "@") {
+      alert("Введите корректный @username экстренного контакта.");
+      return;
+    }
     try {
       await axios.post(`${BACKEND_URL}/contact`, {
         user_id: Number(userId),
-        contact,
+        contact: value,
       });
+      setContact(value);
       setEditingContact(false);
+      setHasServerContact(true);
+      try {
+        localStorage.setItem(LS_KEY_CONTACT, value);
+      } catch {}
       alert("Контакт сохранён");
     } catch (e) {
-      const msg =
-        e?.response?.data?.error || e?.message || "Ошибка сохранения контакта";
+      const msg = e?.response?.data?.error || e?.message || "Ошибка сохранения контакта";
       alert(msg);
     }
   };
 
   const isTelegramReady = !!userId;
+  const toggleDisabled = !isTelegramReady || busy || !(contact && contact.trim().length > 1);
 
   return (
     <div className="app" style={{ backgroundColor: isHome ? "#d4f7d4" : "#f7d4d4" }}>
@@ -126,7 +192,7 @@ export default function App() {
             type="checkbox"
             checked={!isHome}
             onChange={toggleStatus}
-            disabled={!isTelegramReady || busy}
+            disabled={toggleDisabled}
           />
           <span className="slider round"></span>
         </label>
@@ -153,6 +219,11 @@ export default function App() {
         <button onClick={onContactAction} disabled={!isTelegramReady}>
           {editingContact ? "Сохранить" : "Изменить"}
         </button>
+        {!hasServerContact && (
+          <div style={{ marginTop: 8, color: "#a00" }}>
+            Укажите экстренный контакт, чтобы включить режим “не дома”.
+          </div>
+        )}
       </div>
     </div>
   );
