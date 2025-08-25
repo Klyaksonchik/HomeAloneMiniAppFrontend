@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // поменяйте при необходимости
+const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // при необходимости замените
 
 export default function App() {
   const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
@@ -9,24 +9,23 @@ export default function App() {
 
   const [isHome, setIsHome] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
+  const [busy, setBusy] = useState(false);
 
   const [contact, setContact] = useState("");
   const [editingContact, setEditingContact] = useState(false);
-  const [busy, setBusy] = useState(false);
 
   const happyDog = "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png";
   const sadDog = "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png";
 
   useEffect(() => {
-    tg?.ready?.();
-    // настройка темы Telegram
     try {
+      tg?.ready?.();
       tg?.expand?.();
       tg?.MainButton?.hide?.();
     } catch {}
   }, [tg]);
 
-  // подтянуть контакт
+  // подтягиваем сохранённый экстренный контакт
   useEffect(() => {
     if (!userId) return;
     axios
@@ -37,18 +36,25 @@ export default function App() {
 
   const toggleStatus = async () => {
     if (!userId) {
-      alert("Открой приложение внутри Telegram после команды /start боту.");
+      alert("Откройте мини‑апп из Telegram после команды /start боту.");
       return;
     }
     if (busy) return;
+
     setBusy(true);
+    const username =
+      tg?.initDataUnsafe?.user?.username
+        ? `@${tg.initDataUnsafe.user.username}`
+        : null;
+
     try {
       if (isHome) {
         setIsHome(false);
-        setTimeLeft(30); // локальный тестовый счётчик
+        setTimeLeft(30); // локальный тестовый таймер отображения
         await axios.post(`${BACKEND_URL}/status`, {
           user_id: Number(userId),
           status: "не дома",
+          username,
         });
       } else {
         setIsHome(true);
@@ -56,13 +62,11 @@ export default function App() {
         await axios.post(`${BACKEND_URL}/status`, {
           user_id: Number(userId),
           status: "дома",
+          username,
         });
       }
     } catch (e) {
-      const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        "Ошибка запроса";
+      const msg = e?.response?.data?.error || e?.message || "Ошибка запроса";
       alert(msg);
     } finally {
       setBusy(false);
@@ -78,10 +82,10 @@ export default function App() {
     return () => clearInterval(id);
   }, [timeLeft]);
 
-  // контакт: Изменить/Сохранить
+  // обработчик для кнопки Изменить/Сохранить контакт
   const onContactAction = async () => {
     if (!userId) {
-      alert("Открой приложение внутри Telegram после команды /start боту.");
+      alert("Откройте мини‑апп из Telegram после команды /start боту.");
       return;
     }
     if (!editingContact) {
@@ -97,9 +101,7 @@ export default function App() {
       alert("Контакт сохранён");
     } catch (e) {
       const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        "Ошибка сохранения контакта";
+        e?.response?.data?.error || e?.message || "Ошибка сохранения контакта";
       alert(msg);
     }
   };
@@ -137,13 +139,9 @@ export default function App() {
       )}
 
       {/* Картинка */}
-      <img
-        src={isHome ? happyDog : sadDog}
-        alt="dog"
-        className="dog-image"
-      />
+      <img src={isHome ? happyDog : sadDog} alt="dog" className="dog-image" />
 
-      {/* Блок экстренного контакта — в самом низу */}
+      {/* Экстренный контакт — внизу */}
       <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <input
           className="contact-input"
