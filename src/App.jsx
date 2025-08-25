@@ -1,40 +1,51 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
-const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // замени на свой
+const BACKEND_URL = "https://homealoneminiapp.onrender.com"; // поменяйте при необходимости
 
 export default function App() {
   const tg = typeof window !== "undefined" ? window.Telegram?.WebApp : null;
   const userId = useMemo(() => tg?.initDataUnsafe?.user?.id ?? null, [tg]);
+
   const [isHome, setIsHome] = useState(true);
   const [timeLeft, setTimeLeft] = useState(null);
+
   const [contact, setContact] = useState("");
+  const [editingContact, setEditingContact] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const happyDog = "https://i.postimg.cc/g2c0nwhz/2025-08-19-16-37-23.png";
   const sadDog = "https://i.postimg.cc/pLjFJ5TD/2025-08-19-16-33-44.png";
 
   useEffect(() => {
     tg?.ready?.();
+    // настройка темы Telegram
+    try {
+      tg?.expand?.();
+      tg?.MainButton?.hide?.();
+    } catch {}
   }, [tg]);
 
-  // подтянуть сохранённый контакт при наличии userId
+  // подтянуть контакт
   useEffect(() => {
     if (!userId) return;
     axios
       .get(`${BACKEND_URL}/contact`, { params: { user_id: userId } })
-      .then((res) => setContact(res?.data?.emergency_contact || ""))
+      .then((r) => setContact(r?.data?.emergency_contact || ""))
       .catch(() => {});
   }, [userId]);
 
   const toggleStatus = async () => {
     if (!userId) {
-      alert("Открой приложение внутри Telegram (mini app).");
+      alert("Открой приложение внутри Telegram после команды /start боту.");
       return;
     }
+    if (busy) return;
+    setBusy(true);
     try {
       if (isHome) {
         setIsHome(false);
-        setTimeLeft(30);
+        setTimeLeft(30); // локальный тестовый счётчик
         await axios.post(`${BACKEND_URL}/status`, {
           user_id: Number(userId),
           status: "не дома",
@@ -48,22 +59,33 @@ export default function App() {
         });
       }
     } catch (e) {
-      console.error(e);
-      alert("Ошибка запроса");
+      const msg =
+        e?.response?.data?.error ||
+        e?.message ||
+        "Ошибка запроса";
+      alert(msg);
+    } finally {
+      setBusy(false);
     }
   };
 
+  // локальный таймер отображения
   useEffect(() => {
     if (!timeLeft) return;
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    const id = setInterval(() => {
+      setTimeLeft((prev) => (prev && prev > 0 ? prev - 1 : 0));
     }, 1000);
-    return () => clearInterval(interval);
+    return () => clearInterval(id);
   }, [timeLeft]);
 
-  const saveContact = async () => {
+  // контакт: Изменить/Сохранить
+  const onContactAction = async () => {
     if (!userId) {
-      alert("Открой приложение внутри Telegram (mini app).");
+      alert("Открой приложение внутри Telegram после команды /start боту.");
+      return;
+    }
+    if (!editingContact) {
+      setEditingContact(true);
       return;
     }
     try {
@@ -71,49 +93,69 @@ export default function App() {
         user_id: Number(userId),
         contact,
       });
+      setEditingContact(false);
       alert("Контакт сохранён");
-    } catch {
-      alert("Ошибка сохранения контакта");
+    } catch (e) {
+      const msg =
+        e?.response?.data?.error ||
+        e?.message ||
+        "Ошибка сохранения контакта";
+      alert(msg);
     }
   };
 
-  const isTelegram = !!userId;
+  const isTelegramReady = !!userId;
 
   return (
     <div className="app" style={{ backgroundColor: isHome ? "#d4f7d4" : "#f7d4d4" }}>
       <h1>Home Alone App</h1>
 
-      {!isTelegram && (
+      {!isTelegramReady && (
         <div style={{ marginBottom: 12, color: "#a00", fontWeight: "bold" }}>
-          Открой приложение внутри Telegram после команды /start
+          Откройте мини‑апп из меню бота после команды /start
         </div>
       )}
 
-      <div className="slider-container" style={{ opacity: isTelegram ? 1 : 0.6 }}>
+      {/* Слайдер состояния */}
+      <div className="slider-container" style={{ opacity: isTelegramReady ? 1 : 0.6 }}>
         <span className="status-label">🏠 Дома</span>
         <label className="switch">
-          <input type="checkbox" checked={!isHome} onChange={toggleStatus} disabled={!isTelegram} />
+          <input
+            type="checkbox"
+            checked={!isHome}
+            onChange={toggleStatus}
+            disabled={!isTelegramReady || busy}
+          />
           <span className="slider round"></span>
         </label>
         <span className="status-label">🚶 Не дома</span>
       </div>
 
+      {/* Таймер */}
       {!isHome && timeLeft !== null && (
         <div className="timer">Осталось: {timeLeft} сек.</div>
       )}
 
-      <input
-        className="contact-input"
-        placeholder="@username экстренного контакта"
-        value={contact}
-        onChange={(e) => setContact(e.target.value)}
-        disabled={!isTelegram}
+      {/* Картинка */}
+      <img
+        src={isHome ? happyDog : sadDog}
+        alt="dog"
+        className="dog-image"
       />
-      <button onClick={saveContact} disabled={!isTelegram}>
-        Сохранить экстренный контакт
-      </button>
 
-      <img src={isHome ? happyDog : sadDog} alt="dog" className="dog-image" />
+      {/* Блок экстренного контакта — в самом низу */}
+      <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <input
+          className="contact-input"
+          placeholder="@username экстренного контакта"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          disabled={!isTelegramReady || !editingContact}
+        />
+        <button onClick={onContactAction} disabled={!isTelegramReady}>
+          {editingContact ? "Сохранить" : "Изменить"}
+        </button>
+      </div>
     </div>
   );
 }
