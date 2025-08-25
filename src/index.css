@@ -11,7 +11,7 @@ body {
   align-items: center;
   justify-content: flex-start;
   padding-top: 60px;
-  background: linear-gradient(135deg, #f8fff8 0%, #e8f5e8 50%, #f0f8f0 100%);
+  background: linear-gradient(135deg, #f0fff0 0%, #e0f5e0 50%, #d4f7d4 100%);
   position: relative;
   transition: background 0.8s ease;
 }
@@ -20,7 +20,7 @@ body {
   background: linear-gradient(135deg, #fff8f8 0%, #ffe8e8 50%, #f8f0f0 100%);
 }
 
-/* Более яркие цветные пятна */
+/* Более яркие зелёные пятна */
 .app::after {
   content: '';
   position: fixed;
@@ -29,9 +29,9 @@ body {
   right: 0;
   bottom: 0;
   background: 
-    radial-gradient(circle at 25% 75%, rgba(76, 175, 80, 0.25) 0%, transparent 45%),
-    radial-gradient(circle at 75% 25%, rgba(76, 175, 80, 0.2) 0%, transparent 40%),
-    radial-gradient(circle at 50% 50%, rgba(76, 175, 80, 0.15) 0%, transparent 60%);
+    radial-gradient(circle at 25% 75%, rgba(76, 175, 80, 0.35) 0%, transparent 45%),
+    radial-gradient(circle at 75% 25%, rgba(76, 175, 80, 0.3) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(76, 175, 80, 0.25) 0%, transparent 60%);
   pointer-events: none;
   transition: all 0.8s ease;
   z-index: -1;
