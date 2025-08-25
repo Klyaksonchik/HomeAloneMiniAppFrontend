@@ -81,7 +81,7 @@ export default function App() {
     if (!userId || busy) return;
     const contactTrimmed = (contact || "").trim();
     const contactValid = contactTrimmed.startsWith("@") && contactTrimmed.length > 1;
-    if (isHome && !contactValid) {
+    if (isHome && !contactValid) {  
       alert("Укажите экстренный контакт (@username), прежде чем уходить из дома.");
       return;
     }
@@ -155,7 +155,7 @@ export default function App() {
   const toggleDisabled = !isTelegramReady || busy || !(contact && contact.trim().length > 1);
 
   return (
-    <div className="app">
+    <div className={`app ${!isHome ? 'not-home' : ''}`}>
       <h1>Home Alone App</h1>
 
       {!isTelegramReady && (
